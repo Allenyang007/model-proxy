@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/root/.nvm/versions/node/v22.22.0/bin/node /root/.openclaw/workspace/projects/model-proxy/src/server.js
-WorkingDirectory=/root/.openclaw/workspace/projects/model-proxy
+ExecStart=/path/to/node /path/to/model-proxy/src/server.js
+WorkingDirectory=/path/to/model-proxy
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
