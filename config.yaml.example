@@ -1,0 +1,47 @@
+port: 3000
+host: 127.0.0.1
+logLevel: info
+timeout: 45000
+maxRetries: 2
+parallelTimeout: 45000
+auth:
+  enabled: true
+  username: admin
+  password: YOUR_PASSWORD_HERE
+activeModel: xiaomi-direct/mimo-v2.5-pro
+fallbackModels:
+  - minimax/MiniMax-M2.7-highspeed
+  - xiaomi token plan/mimo-v2.5-pro
+  - openai-codex/gpt-5.4
+  - xiaomi-direct/mimo-v2.5-omni
+providers:
+  - name: xiaomi-direct
+    baseUrl: https://api.xiaomimimo.com/v1
+    apiKey: YOUR_XIAOMI_DIRECT_API_KEY
+    apiType: openai-completions
+    models:
+      - id: mimo-v2.5-pro
+        label: MiMo v2.5 Pro (direct)
+  - name: minimax
+    baseUrl: https://api.minimaxi.com/v1
+    apiKey: YOUR_MINIMAX_API_KEY
+    apiType: openai-completions
+    models:
+      - id: MiniMax-M2.7-highspeed
+        label: MiniMax M2.7
+  - name: openai-codex
+    baseUrl: https://api.openai.com/v1
+    apiKey: YOUR_OPENAI_API_KEY
+    apiType: openai-completions
+    models:
+      - id: gpt-5.4
+        label: GPT 5.4
+  - name: xiaomi token plan
+    baseUrl: https://token-plan-cn.xiaomimimo.com/v1
+    apiKey: YOUR_XIAOMI_TOKEN_PLAN_API_KEY
+    apiType: openai-completions
+    models:
+      - id: mimo-v2.5-pro
+        label: MiMo v2.5 Pro (token plan)
+      - id: mimo-v2.5
+        label: MiMo v2.5 (token plan)

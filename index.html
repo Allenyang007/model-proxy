@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Model Proxy Dashboard</title>
+<style>
+:root{--bg:#0f1117;--card:#1a1d27;--border:#2a2d3a;--text:#e4e4e7;--muted:#71717a;--green:#22c55e;--red:#ef4444;--yellow:#eab308;--blue:#3b82f6;--purple:#a855f7;--orange:#f97316;--cyan:#06b6d4}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:20px}
+.hidden{display:none!important}
+
+.login-page{display:flex;align-items:center;justify-content:center;min-height:80vh}
+.login-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:32px;width:360px;max-width:90vw}
+.login-box h2{font-size:18px;margin-bottom:24px;text-align:center}
+.login-box .fg{margin-bottom:16px}
+.login-box label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+.login-box input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:6px;font-size:14px;outline:none}
+.login-box input:focus{border-color:var(--blue)}
+.login-box button{width:100%;background:var(--blue);color:white;border:none;padding:10px;border-radius:6px;font-size:14px;cursor:pointer;font-weight:500;margin-top:8px}
+.login-box .error{color:var(--red);font-size:12px;margin-top:8px;text-align:center}
+
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+.header h1{font-size:20px;font-weight:600;display:flex;align-items:center;gap:8px}
+.header .right{display:flex;align-items:center;gap:12px}
+.header .status{font-size:13px;display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+.dot.off{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.logout-btn{background:none;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer}
+.logout-btn:hover{border-color:var(--red);color:var(--red)}
+
+.active-bar{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.active-bar .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.active-bar .value{font-size:15px;font-weight:600;color:var(--cyan)}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px}
+.stat-card .label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.stat-card .value{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+
+.section{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:16px;overflow:hidden}
+.section-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600}
+.section-header .actions{display:flex;gap:8px}
+
+.btn{background:none;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer;transition:all .2s}
+.btn:hover{border-color:var(--blue);color:var(--blue)}
+.btn-primary{background:var(--blue);border-color:var(--blue);color:white}
+.btn-primary:hover{background:#2563eb}
+.btn-danger{border-color:var(--red);color:var(--red)}
+.btn-danger:hover{background:rgba(239,68,68,.1)}
+.btn-green{border-color:var(--green);color:var(--green)}
+.btn-green:hover{background:rgba(34,197,94,.1)}
+.btn-sm{padding:3px 8px;font-size:11px}
+
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500}
+.badge.ok{background:rgba(34,197,94,.15);color:var(--green)}
+.badge.err{background:rgba(239,68,68,.15);color:var(--red)}
+.badge.skip{background:rgba(148,163,184,.15);color:var(--muted)}
+.badge.active{background:rgba(6,182,212,.15);color:var(--cyan)}
+.badge.primary{background:rgba(168,85,247,.15);color:var(--purple)}
+.badge.fallback{background:rgba(59,130,246,.15);color:var(--blue)}
+
+/* Fallback chain */
+.chain{padding:16px}
+.chain-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;margin-bottom:4px;font-size:13px}
+.chain-item.active{background:rgba(6,182,212,.1);border:1px solid rgba(6,182,212,.3)}
+.chain-item .num{font-size:11px;color:var(--muted);width:20px;text-align:right}
+.chain-item .star{color:var(--cyan);font-size:14px}
+.chain-item .name{font-weight:500}
+.chain-item .model{color:var(--muted);font-size:12px}
+.chain-item .actions{margin-left:auto;display:flex;gap:4px}
+
+/* Provider cards */
+.providers{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;padding:12px}
+.provider-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px;position:relative}
+.provider-card .p-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.provider-card .p-name{font-size:15px;font-weight:600}
+.provider-card .p-url{font-size:11px;color:var(--muted);margin-bottom:10px;word-break:break-all}
+.provider-card .p-actions{display:flex;gap:4px;opacity:0;transition:opacity .2s}
+.provider-card:hover .p-actions{opacity:1}
+.provider-card .model-list{border-top:1px solid var(--border);padding-top:10px}
+.model-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:13px;cursor:pointer;transition:background .15s}
+.model-row:hover{background:rgba(255,255,255,.04)}
+.model-row.is-active{background:rgba(6,182,212,.08)}
+.model-row .m-star{font-size:14px;cursor:pointer;opacity:.5;transition:opacity .2s}
+.model-row .m-star:hover,.model-row.is-active .m-star{opacity:1}
+.model-row .m-id{flex:1;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:12px}
+.model-row .m-label{color:var(--muted);font-size:12px}
+.model-row .m-del{opacity:0;color:var(--red);font-size:11px;cursor:pointer;transition:opacity .2s}
+.model-row:hover .m-del{opacity:.6}
+.model-row .m-del:hover{opacity:1}
+.model-row .m-health{font-size:10px;margin-left:auto;padding-right:8px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.model-row .m-health.ok{color:var(--green)}
+.model-row .m-health.err{color:var(--red)}
+.model-row .m-health.skip{color:var(--muted)}
+.add-model-btn{display:block;width:100%;padding:6px;border:1px dashed var(--border);border-radius:6px;background:none;color:var(--muted);font-size:12px;cursor:pointer;margin-top:8px;text-align:center}
+.add-model-btn:hover{border-color:var(--blue);color:var(--blue)}
+
+/* Provider reorder */
+.reorder-btns{display:flex;flex-direction:column;gap:2px;position:absolute;top:8px;right:8px;opacity:0;transition:opacity .2s}
+.provider-card:hover .reorder-btns{opacity:1}
+.reorder-btn{background:none;border:1px solid var(--border);color:var(--muted);width:24px;height:20px;border-radius:4px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.reorder-btn:hover{border-color:var(--blue);color:var(--blue)}
+
+/* Logs */
+.log-table{width:100%;border-collapse:collapse;font-size:13px}
+.log-table th{text-align:left;padding:10px 16px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--card)}
+.log-table td{padding:8px 16px;border-bottom:1px solid rgba(42,45,58,.5);font-variant-numeric:tabular-nums}
+.log-table tr:hover td{background:rgba(59,130,246,.05)}
+.log-table .empty{text-align:center;padding:32px;color:var(--muted)}
+.log-detail{background:var(--bg);padding:12px 16px;font-size:12px;font-family:'SF Mono',Monaco,Consolas,monospace;white-space:pre-wrap;word-break:break-word;display:none;border-top:1px solid var(--border)}
+.log-detail.show{display:block}
+
+/* Chart */
+.chart-container{padding:16px}
+.chart-bar-group{display:flex;align-items:flex-end;gap:2px;height:120px;margin-bottom:8px}
+.chart-bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;cursor:pointer;position:relative}
+.chart-bar .bar{width:100%;border-radius:3px 3px 0 0;min-height:2px;transition:height .3s}
+.chart-bar .bar.in{background:var(--blue)}
+.chart-bar .bar.out{background:var(--purple)}
+.chart-bar:hover .bar{opacity:.8}
+.chart-labels{display:flex;gap:2px;font-size:9px;color:var(--muted)}
+.chart-labels span{flex:1;text-align:center}
+.chart-legend{display:flex;gap:16px;margin-bottom:12px;font-size:11px;color:var(--muted)}
+.chart-legend .dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:middle}
+.chart-range{display:flex;gap:8px}
+
+/* Health */
+.health-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;padding:16px}
+.health-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;font-size:12px;background:var(--bg)}
+.health-item .h-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.health-item .h-dot.ok{background:var(--green)}
+.health-item .h-dot.err{background:var(--red)}
+.health-item .h-dot.skip{background:var(--muted)}
+.health-item .h-dot.pending{background:var(--yellow)}
+.health-item .h-name{flex:1;min-width:0;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.health-item .h-time{max-width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+.health-item .h-time.ok{color:var(--green)}
+.health-item .h-time.err{color:var(--red)}
+.health-item .h-time.skip{color:var(--muted)}
+
+/* Chat */
+.chat-area{padding:16px}
+.chat-input-group{display:flex;gap:8px;margin-bottom:12px}
+.chat-input-group input{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px;outline:none}
+.chat-input-group button{background:var(--blue);color:white;border:none;padding:8px 16px;border-radius:6px;font-size:13px;cursor:pointer;font-weight:500;white-space:nowrap}
+.chat-input-group button:disabled{opacity:.5;cursor:not-allowed}
+.chat-response{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:13px;line-height:1.6;min-height:60px;max-height:300px;overflow-y:auto;white-space:pre-wrap;word-break:break-word}
+.chat-response.streaming::after{content:'▊';animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* Codex */
+.codex-card{padding:16px}
+.codex-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.codex-row .cr-label{font-size:12px;color:var(--muted);width:80px;flex-shrink:0}
+
+/* Modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:center;justify-content:center}
+.modal-overlay.active{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;width:90%;max-width:500px;max-height:90vh;overflow-y:auto}
+.modal h3{font-size:16px;margin-bottom:16px}
+.fg{margin-bottom:14px}
+.fg label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+.fg input,.fg select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px;outline:none}
+.fg input:focus,.fg select:focus{border-color:var(--blue)}
+.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+
+.toast{position:fixed;bottom:24px;right:24px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-size:13px;z-index:200;transform:translateY(100px);opacity:0;transition:all .3s}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{border-color:var(--green)}
+.toast.error{border-color:var(--red)}
+
+.footer{text-align:center;color:var(--muted);font-size:12px;margin-top:24px;padding:12px}
+@media(max-width:640px){body{padding:12px}.stats{grid-template-columns:repeat(2,1fr)}.providers{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div class="login-page" id="login-page">
+  <div class="login-box">
+    <h2>🦀 Model Proxy</h2>
+    <div class="fg"><label>用户名</label><input type="text" id="login-user" placeholder="admin" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="fg"><label>密码</label><input type="password" id="login-pass" placeholder="密码" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <button onclick="doLogin()">登录</button>
+    <div class="error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div class="dashboard hidden" id="dashboard">
+  <div class="header">
+    <h1><span>🦀</span> Model Proxy</h1>
+    <div class="right">
+      <div class="status"><div class="dot" id="status-dot"></div><span id="status-text">连接中...</span></div>
+      <button class="logout-btn" onclick="doLogout()">退出</button>
+    </div>
+  </div>
+
+  <!-- Active Model Bar -->
+  <div class="active-bar">
+    <span class="label">当前首选模型</span>
+    <span class="value" id="active-model-display">-</span>
+    <span id="active-model-badge" class="badge active"></span>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat-card"><div class="label">运行时间</div><div class="value" id="uptime">-</div></div>
+    <div class="stat-card"><div class="label">总请求数</div><div class="value" id="total-requests">-</div></div>
+    <div class="stat-card"><div class="label">成功率</div><div class="value" id="success-rate">-</div></div>
+    <div class="stat-card"><div class="label">Token 消耗</div><div class="value" id="total-tokens">-</div></div>
+    <div class="stat-card"><div class="label">平均延迟</div><div class="value" id="avg-latency">-</div></div>
+  </div>
+
+  <!-- Fallback Chain -->
+  <div class="section">
+    <div class="section-header">
+      <span>⛓️ Fallback 链路</span>
+      <div class="actions">
+        <button class="btn" onclick="loadProviders()">刷新</button>
+        <button class="btn btn-primary" onclick="openAddProviderModal()">+ 添加 Provider</button>
+      </div>
+    </div>
+    <div class="chain" id="fallback-chain"></div>
+  </div>
+
+  <!-- Providers -->
+  <div class="section">
+    <div class="section-header">
+      <span>📦 Provider 管理</span>
+      <div class="actions">
+        <button class="btn btn-primary" onclick="quickAddApi()">+ 添加 API</button>
+        <button class="btn" onclick="loadHealthCheck()">🔍 健康检测</button>
+      </div>
+    </div>
+    <div class="providers" id="providers-grid"></div>
+  </div>
+
+  <!-- Token Chart -->
+  <div class="section">
+    <div class="section-header">
+      <span>📊 Token 消耗趋势</span>
+      <div class="actions">
+        <div class="chart-range">
+          <button class="btn btn-sm" onclick="setChartRange(24)">24h</button>
+          <button class="btn btn-sm" onclick="setChartRange(72)">3天</button>
+          <button class="btn btn-sm" onclick="setChartRange(168)">7天</button>
+        </div>
+      </div>
+    </div>
+    <div class="chart-container">
+      <div class="chart-legend">
+        <span><span class="dot" style="background:var(--blue)"></span>输入 Token</span>
+        <span><span class="dot" style="background:var(--purple)"></span>输出 Token</span>
+      </div>
+      <div class="chart-bar-group" id="chart-bars"></div>
+      <div class="chart-labels" id="chart-labels"></div>
+    </div>
+  </div>
+
+  <!-- Logs -->
+  <div class="section">
+    <div class="section-header">
+      <span>📋 请求日志</span>
+      <div class="actions">
+        <button class="btn" onclick="loadLogs()">刷新</button>
+        <select id="log-filter" onchange="loadLogs()" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px;font-size:11px">
+          <option value="">全部</option>
+          <option value="primary">Primary</option>
+          <option value="fallback">Fallback</option>
+        </select>
+      </div>
+    </div>
+    <div style="max-height:400px;overflow-y:auto">
+      <table class="log-table">
+        <thead><tr><th>时间</th><th>模型</th><th>阶段</th><th>状态</th><th>延迟</th><th>Token</th></tr></thead>
+        <tbody id="logs-body"><tr><td colspan="6" class="empty">暂无日志</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Health integrated into Provider cards -->
+
+  <!-- Chat Test -->
+  <div class="section">
+    <div class="section-header"><span>💬 测试聊天</span></div>
+    <div class="chat-area">
+      <div class="chat-input-group">
+        <select id="chat-mode" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:6px;font-size:13px"><option value="stream">流式</option><option value="complete">完整</option></select>
+        <input type="text" id="chat-input" placeholder="输入测试消息..." onkeydown="if(event.key==='Enter')sendChat()">
+        <button id="chat-send" onclick="sendChat()">发送</button>
+      </div>
+      <div class="chat-response" id="chat-response">准备就绪</div>
+    </div>
+  </div>
+
+  <!-- Codex OAuth -->
+  <div class="section">
+    <div class="section-header"><span>🔐 OpenAI Codex OAuth</span><button class="btn" onclick="loadCodexStatus()">刷新</button></div>
+    <div class="codex-card" id="codex-card">
+      <div class="codex-row"><span class="cr-label">状态</span><span id="codex-status">检测中...</span></div>
+      <div class="codex-row"><span class="cr-label">模式</span><span id="codex-mode">-</span></div>
+      <div class="codex-row"><span class="cr-label">Token</span><span id="codex-token">-</span></div>
+      <div class="codex-row" style="margin-top:8px"><span class="cr-label">操作</span><button class="btn btn-sm btn-green" onclick="triggerOAuth()">🔄 重新授权</button></div>
+      <div id="oauth-instructions" style="display:none;margin-top:12px;padding:12px;background:var(--bg);border-radius:8px;font-size:12px;line-height:1.8;color:var(--muted)"></div>
+    </div>
+  </div>
+
+  <div class="footer">Model Proxy Dashboard · 🦞</div>
+</div>
+
+<!-- Add/Edit Provider Modal -->
+<div class="modal-overlay" id="modal-provider" onclick="if(event.target===this)closeModal('modal-provider')">
+  <div class="modal">
+    <h3 id="mp-title">添加 Provider</h3>
+    <input type="hidden" id="mp-edit-name" value="">
+    <div class="fg"><label>名称</label><input type="text" id="mp-name" placeholder="my-provider"></div>
+    <div class="fg"><label>Base URL</label><input type="text" id="mp-url" placeholder="https://api.example.com/v1"></div>
+    <div class="fg"><label>API Key</label><input type="text" id="mp-key" placeholder="sk-..."></div>
+    <div class="fg"><label>API 类型</label><select id="mp-type"><option value="openai-completions">OpenAI Completions</option><option value="anthropic-messages">Anthropic Messages</option></select></div>
+    <div class="fg"><label>Models（每行一个，格式: model_id | 显示名）</label><textarea id="mp-models" rows="4" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px;font-family:monospace;outline:none;resize:vertical" placeholder="gpt-4o | GPT 4o&#10;gpt-4o-mini | GPT 4o Mini"></textarea></div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal('modal-provider')">取消</button>
+      <button class="btn btn-primary" id="mp-submit" onclick="submitProvider()">添加</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Model Modal -->
+<div class="modal-overlay" id="modal-model" onclick="if(event.target===this)closeModal('modal-model')">
+  <div class="modal">
+    <h3>添加 Model</h3>
+    <input type="hidden" id="mm-provider" value="">
+    <div class="fg"><label>Model ID</label><input type="text" id="mm-id" placeholder="gpt-4o"></div>
+    <div class="fg"><label>显示名</label><input type="text" id="mm-label" placeholder="GPT 4o"></div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal('modal-model')">取消</button>
+      <button class="btn btn-primary" onclick="submitModel()">添加</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const BASE = window.location.hostname === 'localhost' || window.location.port === '3000' ? window.location.origin : '/proxy';
+let TOKEN = localStorage.getItem('proxy_token') || '';
+let chartHours = 168;
+
+function api(p, o={}) {
+  const h = {'Content-Type':'application/json',...(o.headers||{})};
+  if (TOKEN) h['Authorization'] = `Bearer ${TOKEN}`;
+  return fetch(`${BASE}${p}`,{...o,headers:h}).then(async r => {
+    if (r.status===401){doLogout();throw new Error('Unauthorized');}
+    return r;
+  });
+}
+
+function fmtUptime(ms){const s=Math.floor(ms/1000),m=Math.floor(s/60),h=Math.floor(m/60),d=Math.floor(h/24);if(d>0)return d+'d '+h%24+'h';if(h>0)return h+'h '+m%60+'m';if(m>0)return m+'m '+s%60+'s';return s+'s';}
+function fmtTime(ts){return new Date(ts).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
+function fmtNum(n){if(n>=1e6)return(n/1e6).toFixed(1)+'M';if(n>=1e3)return(n/1e3).toFixed(1)+'K';return String(n);}
+function toast(m,t='success'){const e=document.getElementById('toast');e.textContent=m;e.className='toast '+t+' show';setTimeout(()=>e.classList.remove('show'),3000);}
+function escHtml(v){return String(v??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]));}
+function clipText(v,n=160){v=String(v??'').trim().replace(/\s+/g,' ');return v.length>n?`${v.slice(0,n-1)}…`:v;}
+function healthKind(h){if(!h)return'skip';if(h.skipped)return'skip';return h.ok?'ok':'err';}
+function healthErrorDetail(h){if(!h||h.skipped)return'';if(!h.error)return'';const detail=[h.status?`HTTP ${h.status}`:'',h.code?String(h.code):'',h.error].filter(Boolean).join(' · ');return clipText(detail,220);}
+function healthSummary(h){if(!h)return'';if(h.skipped)return h.reason||h.error||'OAuth';if(h.ok)return h.elapsed!=null?`${h.elapsed}ms`:'OK';return healthErrorDetail(h)||'失败';}
+function healthTitle(h){if(!h)return'';const parts=[];if(h.provider)parts.push(`provider: ${h.provider}`);if(h.model)parts.push(`model: ${h.model}`);if(h.skipped&&(h.reason||h.error))parts.push(`reason: ${h.reason||h.error}`);const detail=healthErrorDetail(h);if(detail)parts.push(detail);return parts.join('\n');}
+function modelHealthChip(h){const kind=healthKind(h);const summary=escHtml(healthSummary(h));const title=escHtml(healthTitle(h));return `<span class="m-health ${kind}" title="${title}">${summary}</span>`;}
+
+// Auth
+async function checkAuth(){
+  try{
+    const r=await fetch(`${BASE}/api/auth/check`,{headers:TOKEN?{'Authorization':`Bearer ${TOKEN}`}:{}});
+    const d=await r.json();
+    if(!d.enabled){showDash();return;}
+    if(d.authenticated){showDash();return;}
+    TOKEN='';localStorage.removeItem('proxy_token');showLogin();
+  }catch{TOKEN='';localStorage.removeItem('proxy_token');showLogin();}
+}
+async function doLogin(){
+  const u=document.getElementById('login-user').value.trim(),p=document.getElementById('login-pass').value.trim();
+  if(!u||!p){document.getElementById('login-error').textContent='请输入用户名和密码';return;}
+  try{const r=await fetch(`${BASE}/api/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+  const d=await r.json();if(d.ok){TOKEN=d.token;localStorage.setItem('proxy_token',TOKEN);showDash();}else{document.getElementById('login-error').textContent=d.error?.message||'登录失败';}}catch{document.getElementById('login-error').textContent='连接失败';}
+}
+function doLogout(){TOKEN='';localStorage.removeItem('proxy_token');showLogin();}
+function showLogin(){document.getElementById('login-page').classList.remove('hidden');document.getElementById('dashboard').classList.add('hidden');}
+function showDash(){document.getElementById('login-page').classList.add('hidden');document.getElementById('dashboard').classList.remove('hidden');loadAll();}
+
+// Load stats
+async function loadStats(){
+  try{const r=await api('/api/stats');const d=await r.json();
+  document.getElementById('uptime').textContent=fmtUptime(d.uptime);
+  document.getElementById('total-requests').textContent=d.totalRequests;
+  document.getElementById('success-rate').textContent=d.successRate;
+  document.getElementById('total-tokens').textContent=fmtNum(d.totalTokens||0);
+  document.getElementById('avg-latency').textContent=d.avgLatency||'N/A';
+  document.getElementById('status-dot').className='dot';
+  document.getElementById('status-text').textContent='运行中 · '+d.totalRequests+' 请求';
+  }catch{document.getElementById('status-dot').className='dot off';document.getElementById('status-text').textContent='连接失败';}
+}
+
+// Load active model
+async function loadActiveModel(){
+  try{const r=await api('/api/active-model');const d=await r.json();
+  document.getElementById('active-model-display').textContent=d.activeModel||'-';
+  }catch{document.getElementById('active-model-display').textContent='-';}
+}
+
+// Set active model
+async function setActiveModel(key){
+  try{await api('/api/active-model',{method:'PUT',body:JSON.stringify({modelKey:key})});
+  toast('已切换到 '+key);loadActiveModel();loadProviders();}catch(e){toast(e.message,'error');}
+}
+
+// Load providers + build chain + cards
+async function loadProviders(){
+  try{
+    const r=await api('/api/providers');const providers=await r.json();
+    let fallbackModels=[];
+    try{const fr=await api('/api/fallback-models');fallbackModels=await fr.json();}catch{}
+    
+    // Build fallback chain
+    const chainEl=document.getElementById('fallback-chain');
+    const amEl=document.getElementById('active-model-display');
+    let activeModel='';
+    try{const ar=await api('/api/active-model');const ad=await ar.json();activeModel=ad.activeModel||'';}catch{}
+    amEl.textContent=activeModel;
+
+    // Build model map for labels
+    const modelMap={};
+    for(const p of providers){for(const m of p.models){modelMap[p.name+'/'+m.id]={...m,providerName:p.name};}}
+
+    let chainHtml='';
+    // Active model
+    if(activeModel&&modelMap[activeModel]){const m=modelMap[activeModel];
+      chainHtml+=`<div class="chain-item active"><span class="num">#1</span><span class="star">⭐</span><span class="name">${m.providerName}</span><span class="model">${m.label||m.id}</span><span class="badge active" style="margin-left:8px">首选</span></div>`;}
+    // Fallback models (ordered)
+    let pos=2;
+    for(let i=0;i<fallbackModels.length;i++){const key=fallbackModels[i];if(key===activeModel)continue;const m=modelMap[key];if(!m)continue;
+      chainHtml+=`<div class="chain-item" data-fb-idx="${i}"><span class="num">#${pos}</span><span style="width:14px;display:inline-block"></span><span class="name">${m.providerName}</span><span class="model">${m.label||m.id}</span><span class="actions"><button class="btn btn-sm btn-primary" onclick="setActiveModel('${key}')">设为首选</button><button class="btn btn-sm" onclick="moveFallback(${i},-1)" ${i===0?'disabled':''}>▲</button><button class="btn btn-sm" onclick="moveFallback(${i},1)" ${i===fallbackModels.length-1?'disabled':''}>▼</button><button class="btn btn-sm btn-danger" onclick="removeFallback(${i})">✕</button></span></div>`;pos++;}
+    // Models not in fallback list
+    for(const key of Object.keys(modelMap)){if(key===activeModel||fallbackModels.includes(key))continue;const m=modelMap[key];
+      chainHtml+=`<div class="chain-item" style="opacity:.85"><span class="num">-</span><span style="width:14px;display:inline-block"></span><span class="name">${m.providerName}</span><span class="model">${m.label||m.id}</span><span class="actions"><button class="btn btn-sm btn-primary" onclick="setActiveModel('${key}')">设为首选</button><button class="btn btn-sm btn-green" onclick="addFallback('${key}')">加入链路</button></span></div>`;}
+    chainEl.innerHTML=chainHtml||'<div style="padding:16px;color:var(--muted)">无模型</div>';
+    // Store for move ops
+    window._fallbackModels=fallbackModels;
+    window._activeModel=activeModel;
+
+    // Provider cards
+    const grid=document.getElementById('providers-grid');
+    // Fetch health status
+    let healthMap={};
+    try{const hr=await api('/api/health-check');const healthResults=await hr.json();
+    for(const h of healthResults){healthMap[h.provider+'/'+h.model]=h;}}catch{}
+
+    grid.innerHTML=providers.map((p,i)=>{
+      // Check if any model in this provider has health status
+      const providerHealth=(p.models||[]).map(m=>healthMap[p.name+'/'+m.id]).filter(Boolean);
+      const allOk=providerHealth.length>0&&providerHealth.every(h=>h.ok||h.skipped);
+      const hasError=providerHealth.some(h=>!h.ok&&!h.skipped);
+      const allSkipped=providerHealth.length>0&&providerHealth.every(h=>h.skipped);
+      const healthBadge=providerHealth.length>0
+        ?`<span class="badge ${allSkipped?'skip':(allOk?'ok':(hasError?'err':'pending'))}" style="font-size:10px;margin-left:8px">${allSkipped?'OAuth':(allOk?'✓ 健康':(hasError?'✗ 异常':'检测中'))}</span>`
+        :'';
+
+      const modelsHtml=(p.models||[]).map(m=>{
+        const key=p.name+'/'+m.id;
+        const isActive=key===activeModel;
+        const mh=healthMap[key];
+        const mHealth=mh?modelHealthChip(mh):'';
+        return `<div class="model-row ${isActive?'is-active':''}" onclick="setActiveModel('${key}')">
+          <span class="m-star" onclick="event.stopPropagation();setActiveModel('${key}')" title="设为首选">${isActive?'⭐':'☆'}</span>
+          <span class="m-id">${m.id}</span>
+          <span class="m-label">${m.label||''}</span>
+          ${mHealth}
+          <span class="m-del" onclick="event.stopPropagation();deleteModel('${p.name}','${m.id}')" title="删除">✕</span>
+        </div>`;
+      }).join('');
+
+      return `<div class="provider-card">
+        <div class="reorder-btns">
+          ${i>0?`<button class="reorder-btn" onclick="moveProvider(${i},-1)">▲</button>`:''}
+          ${i<providers.length-1?`<button class="reorder-btn" onclick="moveProvider(${i},1)">▼</button>`:''}
+        </div>
+        <div class="p-header">
+          <span class="p-name">${p.name}${healthBadge}</span>
+          <div class="p-actions">
+            <button class="btn btn-sm" onclick="openEditProviderModal('${p.name}')">编辑</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteProvider('${p.name}')">删除</button>
+          </div>
+        </div>
+        <div class="p-url">${p.baseUrl} · <span style="color:var(--muted)">${p.apiKey}</span></div>
+        <div class="model-list">
+          ${modelsHtml||'<div style="color:var(--muted);font-size:12px;padding:8px">无模型</div>'}
+          <button class="add-model-btn" onclick="openAddModelModal('${p.name}')">+ 添加模型</button>
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){console.error(e);}
+}
+
+// Fallback model reorder
+async function moveFallback(idx,dir){
+  const fb=[...(window._fallbackModels||[])];
+  if(idx+dir<0||idx+dir>=fb.length)return;
+  [fb[idx],fb[idx+dir]]=[fb[idx+dir],fb[idx]];
+  try{await api('/api/fallback-models',{method:'PUT',body:JSON.stringify({models:fb})});toast('链路顺序已更新');loadProviders();}catch(e){toast(e.message,'error');}
+}
+async function removeFallback(idx){
+  const fb=[...(window._fallbackModels||[])];
+  fb.splice(idx,1);
+  try{await api('/api/fallback-models',{method:'PUT',body:JSON.stringify({models:fb})});toast('已从链路移除');loadProviders();}catch(e){toast(e.message,'error');}
+}
+async function addFallback(key){
+  const fb=[...(window._fallbackModels||[]),key];
+  try{await api('/api/fallback-models',{method:'PUT',body:JSON.stringify({models:fb})});toast('已加入链路');loadProviders();}catch(e){toast(e.message,'error');}
+}
+
+// Provider reorder
+async function moveProvider(idx,dir){
+  try{
+    const r=await api('/api/providers');const providers=await r.json();
+    const order=providers.map(p=>p.name);
+    [order[idx],order[idx+dir]]=[order[idx+dir],order[idx]];
+    await api('/api/providers/reorder',{method:'POST',body:JSON.stringify({order})});
+    toast('已重排');loadProviders();
+  }catch(e){toast(e.message,'error');}
+}
+
+// Provider CRUD
+function openAddProviderModal(){
+  document.getElementById('mp-title').textContent='添加 Provider';
+  document.getElementById('mp-submit').textContent='添加';
+  document.getElementById('mp-edit-name').value='';
+  document.getElementById('mp-name').value='';
+  document.getElementById('mp-url').value='';
+  document.getElementById('mp-key').value='';
+  document.getElementById('mp-type').value='openai-completions';
+  document.getElementById('mp-models').value='';
+  document.getElementById('modal-provider').classList.add('active');
+}
+
+async function openEditProviderModal(name){
+  document.getElementById('mp-title').textContent='编辑: '+name;
+  document.getElementById('mp-submit').textContent='保存';
+  document.getElementById('mp-edit-name').value=name;
+  try{
+    const r=await api('/api/providers');const providers=await r.json();
+    const p=providers.find(x=>x.name===name);if(!p)return;
+    // Need full key - fetch from a different endpoint or just show what we have
+    document.getElementById('mp-name').value=p.name;
+    document.getElementById('mp-url').value=p.baseUrl;
+    document.getElementById('mp-key').value=''; // masked, user needs to re-enter
+    document.getElementById('mp-type').value='openai-completions';
+    document.getElementById('mp-models').value=(p.models||[]).map(m=>m.id+(m.label?' | '+m.label:'')).join('\n');
+    document.getElementById('modal-provider').classList.add('active');
+  }catch{toast('加载失败','error');}
+}
+
+async function submitProvider(){
+  const name=document.getElementById('mp-name').value.trim();
+  const baseUrl=document.getElementById('mp-url').value.trim();
+  const apiKey=document.getElementById('mp-key').value.trim();
+  const apiType=document.getElementById('mp-type').value;
+  const modelsRaw=document.getElementById('mp-models').value.trim();
+  const original=document.getElementById('mp-edit-name').value;
+
+  if(!name||!baseUrl){toast('名称和 URL 必填','error');return;}
+
+  const models=modelsRaw.split('\n').filter(l=>l.trim()).map(line=>{
+    const parts=line.split('|').map(s=>s.trim());
+    return{id:parts[0],label:parts[1]||parts[0]};
+  });
+
+  try{
+    if(original){
+      const body={name,baseUrl,apiType,models};
+      if(apiKey)body.apiKey=apiKey;
+      await api('/api/providers/'+encodeURIComponent(original),{method:'PUT',body:JSON.stringify(body)});
+      toast('已更新');
+    }else{
+      if(!apiKey){toast('API Key 必填','error');return;}
+      await api('/api/providers',{method:'POST',body:JSON.stringify({name,baseUrl,apiKey,apiType,models})});
+      toast('已添加');
+    }
+    closeModal('modal-provider');loadProviders();
+  }catch(e){toast(e.message,'error');}
+}
+
+async function deleteProvider(name){
+  if(!confirm('确定删除 '+name+'？'))return;
+  try{await api('/api/providers/'+encodeURIComponent(name),{method:'DELETE'});toast('已删除');loadProviders();}catch(e){toast(e.message,'error');}
+}
+
+// Quick add API - add model to existing provider or create new provider
+async function quickAddApi(){
+  // Load current providers
+  let providers=[];
+  try{const r=await api('/api/providers');providers=await r.json();}catch{}
+  const providerNames=providers.map(p=>p.name);
+  const selectHtml=providerNames.map(n=>`<option value="${n}">${n}</option>`).join('');
+  const html=`<div style="padding:20px;max-width:420px">
+    <h3 style="margin:0 0 16px">添加 API</h3>
+    <div class="fg"><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">选择 Provider</label>
+      <select id="qa-provider" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:6px;font-size:14px">
+        ${selectHtml}
+        <option value="__new__">+ 新建 Provider</option>
+      </select>
+    </div>
+    <div id="qa-new-provider" style="display:none">
+      <div class="fg"><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">新 Provider 名称</label>
+        <input type="text" id="qa-new-name" placeholder="my-provider" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:6px;font-size:14px"></div>
+      <div class="fg"><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Base URL</label>
+        <input type="text" id="qa-new-url" placeholder="https://api.example.com/v1" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:6px;font-size:14px"></div>
+      <div class="fg"><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">API Key</label>
+        <input type="text" id="qa-new-key" placeholder="sk-..." style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:6px;font-size:14px"></div>
+    </div>
+    <div class="fg"><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Model ID</label>
+      <input type="text" id="qa-model-id" placeholder="gpt-4o" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:6px;font-size:14px"></div>
+    <div class="fg"><label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">显示名称（可选）</label>
+      <input type="text" id="qa-model-label" placeholder="GPT-4o" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:6px;font-size:14px"></div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-primary" onclick="submitQuickApi()" style="flex:1">添加</button>
+      <button class="btn" onclick="closeQuickApi()" style="flex:1">取消</button>
+    </div>
+  </div>`;
+  const modal=document.createElement('div');
+  modal.id='modal-quick-api';
+  modal.className='modal-overlay active';
+  modal.innerHTML=`<div class="modal">${html}</div>`;
+  document.body.appendChild(modal);
+  document.getElementById('qa-provider').onchange=function(){
+    document.getElementById('qa-new-provider').style.display=this.value==='__new__'?'block':'none';
+  };
+}
+
+function closeQuickApi(){const m=document.getElementById('modal-quick-api');if(m)m.remove();}
+
+async function submitQuickApi(){
+  const provider=document.getElementById('qa-provider').value;
+  const modelId=document.getElementById('qa-model-id').value.trim();
+  const modelLabel=document.getElementById('qa-model-label').value.trim()||modelId;
+  if(!modelId){toast('Model ID 必填','error');return;}
+  try{
+    if(provider==='__new__'){
+      // Create new provider first
+      const newName=document.getElementById('qa-new-name').value.trim();
+      const newUrl=document.getElementById('qa-new-url').value.trim();
+      const newKey=document.getElementById('qa-new-key').value.trim();
+      if(!newName||!newUrl||!newKey){toast('新 Provider 信息必填','error');return;}
+      await api('/api/providers',{method:'POST',body:JSON.stringify({name:newName,baseUrl:newUrl,apiKey:newKey,models:[{id:modelId,label:modelLabel}]})});
+    }else{
+      // Add model to existing provider
+      await api('/api/providers/'+encodeURIComponent(provider)+'/models',{method:'POST',body:JSON.stringify({id:modelId,label:modelLabel})});
+    }
+    toast('已添加');closeQuickApi();loadProviders();
+  }catch(e){toast(e.message,'error');}
+}
+
+// Model CRUD
+function openAddModelModal(providerName){
+  document.getElementById('mm-provider').value=providerName;
+  document.getElementById('mm-id').value='';
+  document.getElementById('mm-label').value='';
+  document.getElementById('modal-model').classList.add('active');
+}
+
+async function submitModel(){
+  const provider=document.getElementById('mm-provider').value;
+  const id=document.getElementById('mm-id').value.trim();
+  const label=document.getElementById('mm-label').value.trim();
+  if(!id){toast('Model ID 必填','error');return;}
+  try{await api('/api/providers/'+encodeURIComponent(provider)+'/models',{method:'POST',body:JSON.stringify({id,label:label||id})});
+  toast('已添加');closeModal('modal-model');loadProviders();}catch(e){toast(e.message,'error');}
+}
+
+async function deleteModel(provider,modelId){
+  if(!confirm('确定删除 '+modelId+'？'))return;
+  try{await api('/api/providers/'+encodeURIComponent(provider)+'/models/'+encodeURIComponent(modelId),{method:'DELETE'});
+  toast('已删除');loadProviders();}catch(e){toast(e.message,'error');}
+}
+
+// Health check
+async function loadHealthCheck(){
+  const grid=document.getElementById('health-grid');
+  grid.innerHTML='<div class="health-item"><span class="h-dot pending"></span><span class="h-name">检测中...</span></div>';
+  try{const r=await api('/api/health-check');const results=await r.json();
+  grid.innerHTML=(results||[]).map(h=>{const kind=healthKind(h);const key=escHtml(h.key||`${h.provider}/${h.model}`);const label=escHtml(`${h.provider}/${h.model}`);const summary=escHtml(healthSummary(h));const title=escHtml(healthTitle(h));return `<div class="health-item" title="${title}"><span class="h-dot ${kind}"></span><span class="h-name" title="${key}">${label}</span><span class="h-time ${kind}">${summary}</span></div>`;}).join('')||'<div class="health-item"><span class="h-dot skip"></span><span class="h-name">暂无检测项</span></div>';
+  }catch(err){const msg=escHtml(err?.message||'检测失败');grid.innerHTML=`<div class="health-item"><span class="h-dot err"></span><span class="h-name">检测失败</span><span class="h-time err">${msg}</span></div>`;}
+}
+
+// Chart
+function setChartRange(h){chartHours=h;loadChart();}
+async function loadChart(){
+  try{const r=await api('/api/hourly?hours='+chartHours);const data=await r.json();
+  // Aggregate by day for 7d, by hour for 24h
+  let displayData=data;
+  if(chartHours>48){
+    // Aggregate by day
+    const byDay={};
+    for(const d of data){const day=d.date;if(!byDay[day])byDay[day]={date:day,hour:day,request:0,tokensIn:0,tokensOut:0};
+    byDay[day].requests+=d.requests;byDay[day].tokensIn+=d.tokensIn;byDay[day].tokensOut+=d.tokensOut;}
+    displayData=Object.values(byDay);
+  }
+  const barsEl=document.getElementById('chart-bars');
+  const labelsEl=document.getElementById('chart-labels');
+  const maxVal=Math.max(1,...displayData.map(d=>d.tokensIn+d.tokensOut));
+  barsEl.innerHTML=displayData.map(d=>{
+    const inH=Math.max(2,(d.tokensIn/maxVal)*100);
+    const outH=Math.max(2,(d.tokensOut/maxVal)*100);
+    return `<div class="chart-bar"><div class="bar in" style="height:${inH}%" title="In: ${fmtNum(d.tokensIn)}"></div><div class="bar out" style="height:${outH}%" title="Out: ${fmtNum(d.tokensOut)}"></div></div>`;
+  }).join('');
+  const labelStep=chartHours>48?1:Math.max(1,Math.floor(displayData.length/12));
+  labelsEl.innerHTML=displayData.map((d,i)=>i%labelStep===0?`<span>${chartHours>48?d.date.slice(5):d.hour}</span>`:'<span></span>').join('');
+  }catch(e){console.error(e);}
+}
+
+// Logs
+async function loadLogs(){
+  const filter=document.getElementById('log-filter').value;
+  try{let url='/api/logs?limit=100';const r=await api(url);let logs=await r.json();
+  if(filter)logs=logs.filter(l=>l.phase===filter);
+  const tbody=document.getElementById('logs-body');
+  if(!logs.length){tbody.innerHTML='<tr><td colspan="6" class="empty">暂无日志</td></tr>';return;}
+  tbody.innerHTML=logs.map((l,i)=>`<tr onclick="toggleDetail(${i})" style="cursor:pointer">
+    <td>${fmtTime(l.timestamp)}</td>
+    <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${l.provider}">${l.provider}</td>
+    <td><span class="badge ${l.phase.includes('primary')?'primary':'fallback'}">${l.phase}</span></td>
+    <td><span class="badge ${l.success?'ok':'err'}">${l.success?'✓':'✗'} ${l.statusCode||''}</span></td>
+    <td>${l.elapsed}ms</td>
+    <td>${fmtNum((l.tokensIn||0)+(l.tokensOut||0))}</td>
+  </tr><tr><td colspan="6" style="padding:0"><div class="log-detail" id="detail-${i}">${l.error?'错误: '+l.error:''} ${l.model?'模型: '+l.model:''}</div></td></tr>`).join('');
+  }catch(e){console.error(e);}
+}
+function toggleDetail(i){const e=document.getElementById('detail-'+i);if(e)e.classList.toggle('show');}
+
+// Codex
+async function loadCodexStatus(){
+  try{const r=await api('/api/codex/status');const d=await r.json();
+  document.getElementById('codex-status').innerHTML=d.configured?'<span class="badge ok">已配置</span>':'<span class="badge err">未配置</span>';
+  document.getElementById('codex-mode').textContent=d.type||'-';
+  if(d.expired){
+    document.getElementById('codex-token').innerHTML='<span class="badge err">已过期</span>';
+  }else if(d.hasToken){
+    const exp=d.expiresIn||0;
+    document.getElementById('codex-token').innerHTML=`<span class="badge ok">有效</span> <span style="color:var(--muted);font-size:11px">≈${exp}天后过期</span>`;
+  }else{
+    document.getElementById('codex-token').innerHTML='<span class="badge err">无 Token</span>';
+  }
+  }catch{document.getElementById('codex-status').innerHTML='<span class="badge err">检测失败</span>';}
+}
+function triggerOAuth(){const e=document.getElementById('oauth-instructions');e.style.display='block';e.innerHTML='<strong>⚠️ 需要浏览器授权</strong><br>在服务器终端执行：<br><code style="background:var(--card);padding:4px 8px;border-radius:4px;display:block;margin:8px 0">openclaw onboard --auth-choice openai-codex</code>';}
+
+// Chat
+async function sendChat(){
+  const input=document.getElementById('chat-input'),mode=document.getElementById('chat-mode').value,msg=input.value.trim();
+  if(!msg)return;
+  const btn=document.getElementById('chat-send'),resp=document.getElementById('chat-response');
+  btn.disabled=true;input.value='';resp.textContent='';resp.classList.add('streaming');
+  try{const headers={'Content-Type':'application/json'};if(TOKEN)headers['Authorization']='Bearer '+TOKEN;
+  if(mode==='stream'){const r=await fetch(`${BASE}/v1/chat/completions`,{method:'POST',headers,body:JSON.stringify({model:'proxy',messages:[{role:'user',content:msg}],stream:true})});
+  const reader=r.body.getReader(),decoder=new TextDecoder();let buf='';
+  while(true){const{done,value}=await reader.read();if(done)break;buf+=decoder.decode(value,{stream:true});const lines=buf.split('\n');buf=lines.pop();for(const l of lines){if(l.startsWith('data: ')&&l!=='data: [DONE]'){try{const j=JSON.parse(l.slice(6));const c=j.choices?.[0]?.delta?.content;if(c)resp.textContent+=c;}catch{}}}}
+  }else{const r=await fetch(`${BASE}/v1/chat/completions`,{method:'POST',headers,body:JSON.stringify({model:'proxy',messages:[{role:'user',content:msg}],stream:false})});
+  const d=await r.json();resp.textContent=d.choices?.[0]?.message?.content||JSON.stringify(d,null,2);}
+  }catch(e){resp.textContent='错误: '+e.message;}
+  finally{resp.classList.remove('streaming');btn.disabled=false;setTimeout(()=>{loadLogs();loadStats();},1000);}
+}
+
+function closeModal(id){document.getElementById(id).classList.remove('active');}
+function loadAll(){loadStats();loadActiveModel();loadProviders();loadLogs();loadChart();loadCodexStatus();}
+
+checkAuth();
+setInterval(()=>{if(!document.getElementById('dashboard').classList.contains('hidden')){loadStats();loadLogs();}},15000);
+</script>
+</body>
+</html>
