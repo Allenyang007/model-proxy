@@ -95,6 +95,10 @@ const server = createServer(async (req, res) => {
   } catch (err) {
     logger.error('Unhandled error:', err);
     if (!res.writableEnded) {
+      if (res.headersSent) {
+        res.end();
+        return;
+      }
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: { message: err.message } }));
     }
@@ -478,15 +482,6 @@ async function handleRoute(req, res, url) {
     const body = await readBody(req);
     const parsed = JSON.parse(body);
     const streaming = parsed.stream === true;
-
-    if (streaming) {
-      res.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'X-Accel-Buffering': 'no',
-      });
-    }
 
     await handleRequest({ body: parsed, streaming }, res, config);
 

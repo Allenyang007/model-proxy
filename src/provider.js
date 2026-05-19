@@ -16,7 +16,17 @@ export function convertRequest(provider, originalBody) {
 
   // OpenAI-compatible: override model, keep everything else
   body.model = provider.model;
+  if (shouldDisableThinking(provider, body)) {
+    body.thinking = { type: 'disabled' };
+  }
   return { url: `${provider.baseUrl}/chat/completions`, body };
+}
+
+function shouldDisableThinking(provider, body) {
+  if (body.thinking !== undefined) return false;
+  return /xiaomi/i.test(provider.name || '') ||
+    /xiaomimimo\.com/i.test(provider.baseUrl || '') ||
+    /^mimo-v2\.5/i.test(provider.model || '');
 }
 
 /**

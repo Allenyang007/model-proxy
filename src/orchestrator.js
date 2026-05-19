@@ -296,6 +296,11 @@ function sendJSON(res, data) {
 
 function sendError(res, statusCode, message) {
   if (res.writableEnded) return;
+  if (res.headersSent) {
+    logger.warn(`[orchestrator] Cannot send HTTP ${statusCode}; response headers were already sent`);
+    res.end();
+    return;
+  }
   res.writeHead(statusCode, { 'Content-Type': 'application/json' });
   res.end(
     JSON.stringify({

@@ -8,8 +8,19 @@ import { generateId } from './utils.js';
 /**
  * Write SSE event to response
  */
+function ensureSSEHeaders(res) {
+  if (res.headersSent) return;
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+}
+
 function writeSSE(res, data) {
   if (res.writableEnded) return false;
+  ensureSSEHeaders(res);
   res.write(`data: ${JSON.stringify(data)}\n\n`);
   return true;
 }
@@ -237,6 +248,7 @@ async function* parseAnthropicStream(response) {
  */
 export async function streamProviderToClient(provider, fetchResponse, res) {
   try {
+    ensureSSEHeaders(res);
     let chunks;
     let tokensIn = 0;
     let tokensOut = 0;
